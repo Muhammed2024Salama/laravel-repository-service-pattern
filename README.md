@@ -50,7 +50,7 @@ This repository demonstrates how to structure a Laravel application using **Repo
 لتجربة المشروع محلياً / *To run the project locally:*
 
 ```bash
-git clone https://github.com/your-username/laravel-repository-service-pattern.git
+git clone git@github.com:Muhammed2024Salama/laravel-repository-service-pattern.git
 cd laravel-repository-service-pattern
 composer install
 cp .env.example .env
@@ -59,9 +59,7 @@ php artisan migrate
 php artisan serve
 ```
 
-> غيّر `your-username` إلى اسم المستخدم أو الرابط الفعلي للريبو.  
-> *Replace `your-username` with your GitHub username or the actual repo URL.*
-
+> *Use actual GitHub repository URL: `git@github.com:Muhammed2024Salama/laravel-repository-service-pattern.git`*
 ---
 
 ## Step 1 — Create Product Model  
