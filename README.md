@@ -39,25 +39,23 @@ php artisan migrate
 
 ---
 
-## 🧱 الخطوة 2: إنشاء الـ Interface
-
-```bash
-mkdir app/Repositories
-touch app/Repositories/ProductRepositoryInterface.php
-```
+## 🧱 الخطوة 2: إنشاء الـ Interface + Typing
 
 ```php
 <?php
 
 namespace App\Repositories;
 
+use App\Models\Product;
+use Illuminate\Database\Eloquent\Collection;
+
 interface ProductRepositoryInterface
 {
-    public function getAll();
-    public function getById($id);
-    public function create(array $data);
-    public function update($id, array $data);
-    public function delete($id);
+    public function getAll(): Collection;
+    public function getById(int $id): Product;
+    public function create(array $data): Product;
+    public function update(int $id, array $data): Product;
+    public function delete(int $id): int;
 }
 ```
 
@@ -75,32 +73,34 @@ touch app/Repositories/ProductRepository.php
 namespace App\Repositories;
 
 use App\Models\Product;
+use Illuminate\Database\Eloquent\Collection;
 
 class ProductRepository implements ProductRepositoryInterface
 {
-    public function getAll()
+    public function getAll(): Collection
     {
         return Product::all();
     }
 
-    public function getById($id)
+    public function getById(int $id): Product
     {
         return Product::findOrFail($id);
     }
 
-    public function create(array $data)
+    public function create(array $data): Product
     {
         return Product::create($data);
     }
 
-    public function update($id, array $data)
+    public function update(int $id, array $data): Product
     {
         $product = Product::findOrFail($id);
         $product->update($data);
+
         return $product;
     }
 
-    public function delete($id)
+    public function delete(int $id): int
     {
         return Product::destroy($id);
     }
@@ -138,37 +138,44 @@ touch app/Services/ProductService.php
 namespace App\Services;
 
 use App\Repositories\ProductRepositoryInterface;
+use App\Models\Product;
+use Illuminate\Database\Eloquent\Collection;
 
 class ProductService
 {
-    protected $productRepository;
+    protected ProductRepositoryInterface $productRepository;
 
     public function __construct(ProductRepositoryInterface $productRepository)
     {
         $this->productRepository = $productRepository;
     }
 
-    public function getAll()
+    public function getAll(): Collection
     {
         return $this->productRepository->getAll();
     }
 
-    public function getById($id)
+    public function getById(int $id): Product
     {
         return $this->productRepository->getById($id);
     }
 
-    public function create(array $data)
+    public function create(array $data): Product
     {
+        // مثال بسيط على Business Logic
+        if (isset($data['price'])) {
+            $data['price'] = round($data['price'], 2);
+        }
+
         return $this->productRepository->create($data);
     }
 
-    public function update($id, array $data)
+    public function update(int $id, array $data): Product
     {
         return $this->productRepository->update($id, $data);
     }
 
-    public function delete($id)
+    public function delete(int $id): int
     {
         return $this->productRepository->delete($id);
     }
@@ -177,11 +184,7 @@ class ProductService
 
 ---
 
-## 🎮 الخطوة 6: إنشاء الـ Controller
-
-```bash
-php artisan make:controller ProductController
-```
+## 🎮 الخطوة 6: إنشاء الـ Form Request + Controller مع Resource
 
 ```php
 <?php
@@ -189,11 +192,12 @@ php artisan make:controller ProductController
 namespace App\Http\Controllers;
 
 use App\Services\ProductService;
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Resources\ProductResource;
 
 class ProductController extends Controller
 {
-    protected $productService;
+    protected ProductService $productService;
 
     public function __construct(ProductService $productService)
     {
@@ -202,30 +206,102 @@ class ProductController extends Controller
 
     public function index()
     {
-        return response()->json($this->productService->getAll());
+        return ProductResource::collection(
+            $this->productService->getAll()
+        );
     }
 
-    public function store(Request $request)
+    public function store(StoreProductRequest $request)
     {
-        return response()->json($this->productService->create($request->all()));
+        $product = $this->productService->create($request->validated());
+
+        return (new ProductResource($product))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    public function show($id)
+    public function show(int $id)
     {
-        return response()->json($this->productService->getById($id));
+        return new ProductResource(
+            $this->productService->getById($id)
+        );
     }
 
-    public function update(Request $request, $id)
+    public function update(StoreProductRequest $request, int $id)
     {
-        return response()->json($this->productService->update($id, $request->all()));
+        $product = $this->productService->update($id, $request->validated());
+
+        return new ProductResource($product);
     }
 
-    public function destroy($id)
+    public function destroy(int $id)
     {
         $this->productService->delete($id);
-        return response()->json(['message' => 'Deleted']);
+
+        return response()->noContent(); // 204 No Content
     }
 }
+
+### مثال على Form Request:
+
+```bash
+php artisan make:request StoreProductRequest
+```
+
+```php
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreProductRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name'  => ['required', 'string', 'max:255'],
+            'price' => ['required', 'numeric', 'min:0'],
+        ];
+    }
+}
+```
+
+### مثال على Resource:
+
+```bash
+php artisan make:resource ProductResource
+```
+
+```php
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class ProductResource extends JsonResource
+{
+    /**
+     * Transform the resource into an array.
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id'         => $this->id,
+            'name'       => $this->name,
+            'price'      => $this->price,
+            'created_at' => $this->created_at,
+        ];
+    }
+}
+```
 ```
 
 ---
@@ -247,8 +323,52 @@ Route::resource('products', ProductController::class);
 1. **Interface:** تعريف قواعد التعامل.
 2. **Repository:** تنفيذ العمليات مع قاعدة البيانات.
 3. **Service:** يحتوي منطق العمل.
-4. **Controller:** يستقبل الطلب ويرد بالنتيجة.
+4. **Controller:** يستقبل الطلب ويرد بالنتيجة (باستخدام Form Request + Resource).
 5. **Route:** يوصل بين الـ Endpoint و الـ Controller.
+
+### Architecture Diagram (Simplified Flow)
+
+Client  
+↓  
+Route  
+↓  
+Controller  
+↓  
+Service  
+↓  
+Repository  
+↓  
+Database
+
+---
+
+## 🗂 مقترح Folder Structure
+
+```text
+app
+ ├── Http
+ │   ├── Controllers
+ │   │   └── ProductController.php
+ │   ├── Requests
+ │   │   └── StoreProductRequest.php
+ │   └── Resources
+ │       └── ProductResource.php
+ │
+ ├── Repositories
+ │   ├── ProductRepositoryInterface.php
+ │   └── ProductRepository.php
+ │
+ ├── Services
+ │   └── ProductService.php
+```
+
+---
+
+## 🚀 Future Improvements
+
+- Add Unit Tests للـ Service و Repository.
+- Add Feature Tests لسيناريوهات الـ API (index/store/show/update/destroy).
+- إضافة طبقة DTO/Data Transformers لو حابب تفصل بين الـ Request Data والـ Domain Objects بشكل أكبر.
 
 ---
 
