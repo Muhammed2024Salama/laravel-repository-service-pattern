@@ -1,26 +1,79 @@
-# 🧠 ليه نستخدم (Interface - Repository - Service) في Laravel؟
+![Laravel](https://img.shields.io/badge/Laravel-11-red)
+![PHP](https://img.shields.io/badge/PHP-8.3-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-## ✅ الهدف:
+# Laravel Clean Architecture (Repository + Service Pattern)  
+# مثال: معمارية نظيفة (Repository + Service) في Laravel
 
-نفصل المسؤوليات (Separation of Concerns) وده مهم جدًا في المشاريع المتوسطة والكبيرة.
-
-- **Controller:** يستقبل الطلب ويتعامل مع الرد (Response).
-- **Service:** يحتوي على منطق العمل (Business Logic).
-- **Repository:** يتعامل مع قاعدة البيانات مباشرة.
-- **Interface:** يحدد التعاقد بين الـ Repository وباقي المشروع، وبيسهّل التبديل أو الاختبار.
+This repository demonstrates how to structure a Laravel application using **Repository Pattern**, **Service Layer**, **Form Requests**, **API Resources**, and **Dependency Injection**.  
+الهدف: فصل المسؤوليات (Separation of Concerns) وبناء تطبيق واضح وقابل للصيانة والاختبار.
 
 ---
 
-## 🧱 الخطوة 1: إنشاء الـ Product Model مع Migration
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Why Use Repository & Service Pattern](#why-use-interface-repository-and-service)
+- [Installation](#installation)
+- [Create Model](#step-1--create-product-model)
+- [Repository Interface](#step-2--repository-interface-with-typing)
+- [Repository Implementation](#step-3--implement-repository)
+- [Service Layer](#step-5--service-layer-business-logic)
+- [Controller + Validation + Resource](#step-6--controller--form-request--resource)
+- [Routes](#step-7--routes)
+- [Architecture Diagram](#architecture-diagram-)
+- [Folder Structure](#folder-structure-)
+- [Future Improvements](#future-improvements-)
+
+---
+
+## Introduction
+
+تطبيق Laravel منظم بطبقات واضحة (Repository, Service, Form Request, API Resource) وقابل للتوسع والاختبار.  
+*A clean, layered Laravel example ready for learning and reuse.*
+
+---
+
+## Why Use Interface, Repository, and Service?  
+## ليه نستخدم Interface و Repository و Service؟
+
+- **Controller:** Handles HTTP requests and responses. — *يستقبل الطلب ويرد بالنتيجة.*
+- **Service:** Contains the business logic. — *يحتوي منطق العمل (Business Logic).*
+- **Repository:** Handles database interactions. — *يتعامل مع قاعدة البيانات.*
+- **Interface:** Defines contracts for flexible implementations. — *يعرّف التعاقد ويُسهّل التبديل والاختبار.*
+
+---
+
+## Installation  
+## التثبيت والتشغيل
+
+لتجربة المشروع محلياً / *To run the project locally:*
+
+```bash
+git clone https://github.com/your-username/laravel-repository-service-pattern.git
+cd laravel-repository-service-pattern
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan serve
+```
+
+> غيّر `your-username` إلى اسم المستخدم أو الرابط الفعلي للريبو.  
+> *Replace `your-username` with your GitHub username or the actual repo URL.*
+
+---
+
+## Step 1 — Create Product Model  
+## الخطوة 1: إنشاء موديل Product
 
 ```bash
 php artisan make:model Product -m
 ```
 
-شرح:  
-`-m` تعني إنشاء ملف Migration تلقائي مع الموديل.
+`-m` ينشئ ملف Migration مع الموديل. / *Creates a migration file.*
 
-### ✏️ في ملف Migration:
+### Update Migration / تعديل الـ Migration
 
 ```php
 Schema::create('products', function (Blueprint $table) {
@@ -31,43 +84,12 @@ Schema::create('products', function (Blueprint $table) {
 });
 ```
 
-ثم نشغّل الأمر:
-
-```bash
-php artisan migrate
-```
+ثم: `php artisan migrate`
 
 ---
 
-## 🧱 الخطوة 2: إنشاء الـ Interface
-
-```bash
-mkdir app/Repositories
-touch app/Repositories/ProductRepositoryInterface.php
-```
-
-```php
-<?php
-
-namespace App\Repositories;
-
-interface ProductRepositoryInterface
-{
-    public function getAll();
-    public function getById($id);
-    public function create(array $data);
-    public function update($id, array $data);
-    public function delete($id);
-}
-```
-
----
-
-## 🧱 الخطوة 3: إنشاء الـ Repository
-
-```bash
-touch app/Repositories/ProductRepository.php
-```
+## Step 2 — Repository Interface (with Typing)  
+## الخطوة 2: واجهة الـ Repository مع الـ Typing
 
 ```php
 <?php
@@ -75,32 +97,57 @@ touch app/Repositories/ProductRepository.php
 namespace App\Repositories;
 
 use App\Models\Product;
+use Illuminate\Database\Eloquent\Collection;
+
+interface ProductRepositoryInterface
+{
+    public function getAll(): Collection;
+    public function getById(int $id): Product;
+    public function create(array $data): Product;
+    public function update(int $id, array $data): Product;
+    public function delete(int $id): int;
+}
+```
+
+---
+
+## Step 3 — Implement Repository  
+## الخطوة 3: تنفيذ الـ Repository
+
+```php
+<?php
+
+namespace App\Repositories;
+
+use App\Models\Product;
+use Illuminate\Database\Eloquent\Collection;
 
 class ProductRepository implements ProductRepositoryInterface
 {
-    public function getAll()
+    public function getAll(): Collection
     {
         return Product::all();
     }
 
-    public function getById($id)
+    public function getById(int $id): Product
     {
         return Product::findOrFail($id);
     }
 
-    public function create(array $data)
+    public function create(array $data): Product
     {
         return Product::create($data);
     }
 
-    public function update($id, array $data)
+    public function update(int $id, array $data): Product
     {
         $product = Product::findOrFail($id);
         $product->update($data);
+
         return $product;
     }
 
-    public function delete($id)
+    public function delete(int $id): int
     {
         return Product::destroy($id);
     }
@@ -109,28 +156,27 @@ class ProductRepository implements ProductRepositoryInterface
 
 ---
 
-## ⚙️ الخطوة 4: ربط الـ Interface بالـ Repository في `AppServiceProvider`
+## Step 4 — Bind Interface in Service Provider  
+## الخطوة 4: ربط الـ Interface في AppServiceProvider
 
-افتح `app/Providers/AppServiceProvider.php` وأضف:
+في `app/Providers/AppServiceProvider.php` داخل `register()`:
 
 ```php
 use App\Repositories\ProductRepositoryInterface;
 use App\Repositories\ProductRepository;
 
-public function register()
-{
-    $this->app->bind(ProductRepositoryInterface::class, ProductRepository::class);
-}
+$this->app->bind(
+    ProductRepositoryInterface::class,
+    ProductRepository::class
+);
 ```
 
 ---
 
-## 🧠 الخطوة 5: إنشاء الـ Service
+## Step 5 — Service Layer (Business Logic)  
+## الخطوة 5: طبقة الـ Service (منطق العمل)
 
-```bash
-mkdir app/Services
-touch app/Services/ProductService.php
-```
+الـ Service هنا مش مجرد pass-through؛ فيه منطق فعلي (مثلاً تقريب السعر).
 
 ```php
 <?php
@@ -138,37 +184,41 @@ touch app/Services/ProductService.php
 namespace App\Services;
 
 use App\Repositories\ProductRepositoryInterface;
+use App\Models\Product;
+use Illuminate\Database\Eloquent\Collection;
 
 class ProductService
 {
-    protected $productRepository;
+    public function __construct(
+        protected ProductRepositoryInterface $productRepository
+    ) {}
 
-    public function __construct(ProductRepositoryInterface $productRepository)
-    {
-        $this->productRepository = $productRepository;
-    }
-
-    public function getAll()
+    public function getAll(): Collection
     {
         return $this->productRepository->getAll();
     }
 
-    public function getById($id)
+    public function getById(int $id): Product
     {
         return $this->productRepository->getById($id);
     }
 
-    public function create(array $data)
+    public function create(array $data): Product
     {
+        // Business logic مثال
+        if (isset($data['price'])) {
+            $data['price'] = round($data['price'], 2);
+        }
+
         return $this->productRepository->create($data);
     }
 
-    public function update($id, array $data)
+    public function update(int $id, array $data): Product
     {
         return $this->productRepository->update($id, $data);
     }
 
-    public function delete($id)
+    public function delete(int $id): int
     {
         return $this->productRepository->delete($id);
     }
@@ -177,11 +227,11 @@ class ProductService
 
 ---
 
-## 🎮 الخطوة 6: إنشاء الـ Controller
+## Step 6 — Controller + Form Request + Resource  
+## الخطوة 6: الـ Controller مع Form Request و API Resource
 
-```bash
-php artisan make:controller ProductController
-```
+- **Form Request** بدل `Request` + `$request->all()` — تحقق من البيانات (Validation).
+- **API Resource** بدل `response()->json()` — تنظيم شكل الـ API.
 
 ```php
 <?php
@@ -189,48 +239,92 @@ php artisan make:controller ProductController
 namespace App\Http\Controllers;
 
 use App\Services\ProductService;
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Resources\ProductResource;
 
 class ProductController extends Controller
 {
-    protected $productService;
-
-    public function __construct(ProductService $productService)
-    {
-        $this->productService = $productService;
-    }
+    public function __construct(
+        protected ProductService $productService
+    ) {}
 
     public function index()
     {
-        return response()->json($this->productService->getAll());
+        return ProductResource::collection(
+            $this->productService->getAll()
+        );
     }
 
-    public function store(Request $request)
+    public function store(StoreProductRequest $request)
     {
-        return response()->json($this->productService->create($request->all()));
+        $product = $this->productService->create($request->validated());
+
+        return (new ProductResource($product))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    public function show($id)
+    public function show(int $id)
     {
-        return response()->json($this->productService->getById($id));
+        return new ProductResource(
+            $this->productService->getById($id)
+        );
     }
 
-    public function update(Request $request, $id)
+    public function update(StoreProductRequest $request, int $id)
     {
-        return response()->json($this->productService->update($id, $request->all()));
+        $product = $this->productService->update($id, $request->validated());
+
+        return new ProductResource($product);
     }
 
-    public function destroy($id)
+    public function destroy(int $id)
     {
         $this->productService->delete($id);
-        return response()->json(['message' => 'Deleted']);
+
+        return response()->noContent(); // 204 No Content
     }
+}
+```
+
+### Form Request Example / مثال Form Request
+
+```bash
+php artisan make:request StoreProductRequest
+```
+
+```php
+public function rules(): array
+{
+    return [
+        'name'  => ['required', 'string', 'max:255'],
+        'price' => ['required', 'numeric', 'min:0'],
+    ];
+}
+```
+
+### API Resource Example / مثال API Resource
+
+```bash
+php artisan make:resource ProductResource
+```
+
+```php
+public function toArray(Request $request): array
+{
+    return [
+        'id'         => $this->id,
+        'name'       => $this->name,
+        'price'      => $this->price,
+        'created_at' => $this->created_at,
+    ];
 }
 ```
 
 ---
 
-## 🛣️ الخطوة 7: إعداد الـ Routes
+## Step 7 — Routes  
+## الخطوة 7: الـ Routes
 
 في `routes/api.php`:
 
@@ -242,17 +336,54 @@ Route::resource('products', ProductController::class);
 
 ---
 
-## 📌 الترتيب النهائي:
+## Architecture Diagram  
+## رسم تدفق المعمارية
 
-1. **Interface:** تعريف قواعد التعامل.
-2. **Repository:** تنفيذ العمليات مع قاعدة البيانات.
-3. **Service:** يحتوي منطق العمل.
-4. **Controller:** يستقبل الطلب ويرد بالنتيجة.
-5. **Route:** يوصل بين الـ Endpoint و الـ Controller.
+```
+Client
+  ↓
+Route
+  ↓
+Controller
+  ↓
+Service Layer
+  ↓
+Repository Layer
+  ↓
+Database
+```
 
 ---
 
-## 👨‍💻 Author
+## Folder Structure / هيكل المجلدات
 
-Muhammed Salama  
+```text
+app
+ ├── Http
+ │   ├── Controllers
+ │   ├── Requests
+ │   └── Resources
+ │
+ ├── Repositories
+ │   ├── ProductRepositoryInterface.php
+ │   └── ProductRepository.php
+ │
+ ├── Services
+ │   └── ProductService.php
+```
+
+---
+
+## Future Improvements / تحسينات مقترحة
+
+- Add Unit Tests — إضافة اختبارات وحدة للـ Service و Repository.
+- Add Feature Tests — اختبارات سيناريوهات الـ API.
+- Implement DTO Layer — طبقة DTO لفصل بيانات الطلب عن النطاق.
+- Add Caching in Repository — تخزين مؤقت في طبقة الـ Repository.
+
+---
+
+## Author / المؤلف
+
+**Muhammed Salama**  
 [devmuhammedsalama@gmail.com](mailto:devmuhammedsalama@gmail.com)
